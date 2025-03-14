@@ -1,0 +1,5 @@
+**/ignore
+minicli.c
+minisrv.c
+**/dock_ci
+**/.vscode
