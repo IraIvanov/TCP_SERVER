@@ -87,10 +87,10 @@ int main(int argc, char *argv[]) {
 
     /* init udp broadcast socket */
     struct sockaddr_in other_addr;
-    in_addr_t broadcast_addr = 0;
+    in_addr_t broadcast_addr = 1;
     
     init_addr(&other_addr, INADDR_BROADCAST, htons(UDP_SRV_PORT));
-    inet_pton(AF_INET, "127.0.0.3", &broadcast_addr);
+    inet_pton(AF_INET, "127.255.255.255", &broadcast_addr);
     printf("%x\n", broadcast_addr);
     other_addr.sin_addr.s_addr = broadcast_addr;
 
@@ -284,8 +284,8 @@ int main(int argc, char *argv[]) {
         }
         elapsed = clock() - start;
         //fprintf(stdout, "event loop takes %u milliseconds to iterate, [%d:%d]\n", convert_to_msec(elapsed), elapsed, start);
-        //check_timers(timer_lst, convert_to_msec(elapsed));
-        check_timers(timer_lst, elapsed);
+        check_timers(timer_lst, convert_to_msec(elapsed));
+        //check_timers(timer_lst, elapsed);
         start = clock();
         usleep(EPOLL_TOUT);
     }

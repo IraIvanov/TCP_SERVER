@@ -73,10 +73,11 @@ int main(int argc, char *argv[]) {
     if (udp_fd < 0) 
         handle_error(strerror(udp_fd));
 
-    int broadcast = 1;
+    /*int broadcast = 1;
 
     if (setsockopt(udp_fd, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast)) < 0)
         handle_error("setsockopt error : udp_fd");
+    */
 
     if (bind(udp_fd, (struct sockaddr *) &my_addr, sizeof(my_addr)) == -1) 
         handle_error("bind :udp_fd");
@@ -121,6 +122,8 @@ int main(int argc, char *argv[]) {
     tcp_sock.sin_family = AF_INET;
 
     u8 task_send = 0;
+    int connection_fd = -1;
+
     while (1) {
 
         int nfds = epoll_wait(epoll_fd, events, EPOLL_MAX_EVTS, EPOLL_TOUT);
@@ -176,19 +179,21 @@ int main(int argc, char *argv[]) {
                         /* TODO: ADD ERROR HANDLING */
                         socklen_t len = sizeof(tcp_sock);
                         int ac = accept(tcp_fd, (struct sockaddr *)&tcp_sock, &len);
+                        printf("#accept ret code %d, len %u, %d\n", ac, len, tcp_fd);
                         if (ac < 0)
                             perror("#accept: tcp_fd");
                         fprintf(stdout, "#connection accepted\n");
-
+                        connection_fd = ac;
+                        /*
                         char buff[MAX_MSG_SIZE] = {};
-                        int rec = recv(tcp_fd, buff, sizeof(buff), 0);
+                        int rec = recv(connection_fd, buff, sizeof(buff), 0);
                         if (rec < 0)
                             perror("#recv tcp_fd");
                         printf("%s\n", buff);
-
-                        ev.data.fd = tcp_fd;
+                        */
+                        ev.data.fd = connection_fd;
                         ev.events = EPOLLIN | EPOLLOUT;
-                        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, tcp_fd, &ev) == -1) {
+                        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, connection_fd, &ev) == -1) {
                             fprintf(stderr, "#can't add socket to epoll\n");
                             perror("epoll_ctl: tcp_fd");
                             continue;
@@ -208,19 +213,22 @@ int main(int argc, char *argv[]) {
                 }
             } else {
                 /* checking tcp channels */
-                printf("checking tcp fds");
-                if (events[i].data.fd == tcp_fd) {
-                    printf("got event on tcp_fd\n");
+                if (events[i].data.fd == connection_fd) {
                     if (events[i].events & EPOLLOUT && task_send) {
                         printf("sending response\n");
                         char buff[MAX_MSG_SIZE] = "test from server\0";
-                        send(tcp_fd, buff, sizeof(buff), 0);
+                        int sd = send(connection_fd, buff, sizeof(buff), 0);
+                        if (sd < 0) {
+                            perror("send: connectiond_fd");
+                            continue;
+                        }
+                        printf("data sent\n");
                         task_send = 0;
                     }
                     if (events[i].events & EPOLLIN) {
                         printf("got buffer from cli\n");
                         char buff[MAX_MSG_SIZE] = {};
-                        recv(tcp_fd, buff, sizeof(buff), 0);
+                        recv(connection_fd, buff, sizeof(buff), 0);
                         printf("%s\n", buff);
                         task_send = 1;
                     }
