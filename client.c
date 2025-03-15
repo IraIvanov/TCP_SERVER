@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
     in_addr_t broadcast_addr = 1;
     
     init_addr(&other_addr, INADDR_BROADCAST, htons(UDP_SRV_PORT));
-    inet_pton(AF_INET, "127.255.255.255", &broadcast_addr);
+    inet_pton(AF_INET, "127.0.0.3", &broadcast_addr);
     printf("%x\n", broadcast_addr);
     other_addr.sin_addr.s_addr = broadcast_addr;
 
@@ -121,6 +121,8 @@ int main(int argc, char *argv[]) {
     u8 task_recv = 0;
 
     /* event loop */
+
+    /* change time estimation */
     start = clock();
     while (1) {
 
@@ -130,6 +132,7 @@ int main(int argc, char *argv[]) {
 
         /* iterate trought the fds */
         for (int i = 0; i < nfds; i++) {
+            /* udp socket works fine, just fix broadcasting */
             if (events[i].data.fd == udp_fd) {
                 /* checking broadcast channel */
                 if (events[i].events & EPOLLOUT && hello_send) {
@@ -247,13 +250,17 @@ int main(int argc, char *argv[]) {
                 int tcp_fd = events[i].data.fd;
                 for (int j = 0; j < MAX_SERVERS; j++) {
                     struct server *srv = &servers[j];
-                    //printf("%d : %d\n", srv->tcp_socket, events[i].data.fd);
+                    
+
                     if (srv->tcp_socket == events[i].data.fd) {
                         if (events[i].events & EPOLLOUT && task_send && srv->status == STATUS_INACTIVE) {
                             printf("sending task\n");
                             char buff[MAX_MSG_SIZE] = "test send\0";
                             int err = send(srv->tcp_socket, buff, sizeof(buff), 0);
                             if (err < 0 && errno == EINPROGRESS) {
+                                /* close file descriptor */
+                                /* set status to unknown */
+                                /* find another server for task */
                                 printf("conn in progress, wait\n");
                                 break;
                             }
@@ -264,10 +271,13 @@ int main(int argc, char *argv[]) {
                             }
                             srv->status = STATUS_ACTIVE;
                             task_send = 0;
+                            /* remove status recv */
                             task_recv = 1;
+                            /* add timer */
                             printf("task sent\n");
                             break;
                         }
+                        /* if EPOLLIN and msg and srv is active and msg is valid accimilate result */
                         if (events[i].events & EPOLLIN && task_recv) {
                             printf("recieving response\n");
                             char buff[MAX_MSG_SIZE] = {};
@@ -284,10 +294,10 @@ int main(int argc, char *argv[]) {
         }
         elapsed = clock() - start;
         //fprintf(stdout, "event loop takes %u milliseconds to iterate, [%d:%d]\n", convert_to_msec(elapsed), elapsed, start);
-        check_timers(timer_lst, convert_to_msec(elapsed));
-        //check_timers(timer_lst, elapsed);
+        //check_timers(timer_lst, convert_to_msec(elapsed));
+        check_timers(timer_lst, elapsed);
         start = clock();
-        usleep(EPOLL_TOUT);
+        usleep(EPOLL_TOUT*100); /* sleep as EPOLL wakes up */
     }
 
     return 0;

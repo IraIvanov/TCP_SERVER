@@ -94,3 +94,7 @@ void init_get_hello_resp_timer(struct network_timer *timer, int time, u8 *hello_
 }
 
 #define HELLO_RESP_TOUT 1000 /* 1 sec */
+
+/* create calc timer */
+/* as hanlder timer should switch server's state to dead and find new server to do task */
+/* if no servers alive create hello send msg */

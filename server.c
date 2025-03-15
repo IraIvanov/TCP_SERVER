@@ -123,6 +123,9 @@ int main(int argc, char *argv[]) {
 
     u8 task_send = 0;
     int connection_fd = -1;
+    /* create list if connections */
+    /* or leave on connection, but made it reusable */
+    /* so if client get task done we can restart client and get it working */
 
     while (1) {
 
@@ -199,15 +202,6 @@ int main(int argc, char *argv[]) {
                             continue;
                         }
                         printf("fd added into epoll\n");
-                        //char test[128] = {'t', 'e', 's', 't', '\0'};
-                        /*
-                        r = write(tcp_fd, test, sizeof(test));
-                        if (r < 0) {
-                            perror("write: tcp_fd");
-                            continue;
-                        }
-                        fprintf(stdout, "data_writen\n");
-                        */
                         //continue;
                     }
                 }
