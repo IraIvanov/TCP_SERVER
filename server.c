@@ -181,12 +181,11 @@ int main(int argc, char *argv[]) {
                         /* accept tcp connection */
                         /* TODO: ADD ERROR HANDLING */
                         socklen_t len = sizeof(tcp_sock);
-                        int ac = accept(tcp_fd, (struct sockaddr *)&tcp_sock, &len);
-                        printf("#accept ret code %d, len %u, %d\n", ac, len, tcp_fd);
-                        if (ac < 0)
+                        connection_fd = accept(tcp_fd, (struct sockaddr *)&tcp_sock, &len);
+                        printf("#accept ret code %d, len %u, %d\n", connection_fd, len, tcp_fd);
+                        if (connection_fd < 0)
                             perror("#accept: tcp_fd");
                         fprintf(stdout, "#connection accepted\n");
-                        connection_fd = ac;
                         /*
                         char buff[MAX_MSG_SIZE] = {};
                         int rec = recv(connection_fd, buff, sizeof(buff), 0);
@@ -202,7 +201,6 @@ int main(int argc, char *argv[]) {
                             continue;
                         }
                         printf("fd added into epoll\n");
-                        //continue;
                     }
                 }
             } else {

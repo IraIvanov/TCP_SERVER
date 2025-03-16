@@ -67,9 +67,13 @@ int del_timer_lst(struct lst_node *node) {
 struct hello_timer_args {
     u8 *hello_send;
     u8 *hello_wait;
+    u8 *task_send;
     u64 *seq_num;
     struct server *srv_lst;
     size_t len;
+    double start;
+    double end;
+    u8 *srv_cnt;
 };
 
 /* hello timer expired handler */
@@ -78,18 +82,47 @@ void hello_timer_handler(void *args) {
     *hello_args->hello_wait = 0;
     (*hello_args->seq_num)++;
     *hello_args->hello_send = has_alive_servers(hello_args->srv_lst, hello_args->len) ? 0 : 1;
+    if (!*hello_args->hello_send)
+        *hello_args->task_send = 1;
+    else
+        goto cleanup;
+
+    /* assign tasks */
+    double step = (hello_args->end - hello_args->start) / *hello_args->srv_cnt;
+    double loc_start = hello_args->start;
+    double loc_end = hello_args->start + step;
+    u8 tasks_assigned = 0;
+    u8 srv_cnt = *hello_args->srv_cnt;
+    for (int i = 0; i < hello_args->len && tasks_assigned < srv_cnt; i++) {
+        struct server* srv = &hello_args->srv_lst[i];
+        if (srv->status == STATUS_INACTIVE) {
+            srv->task_start = loc_start;
+            srv->task_end = loc_end;
+            loc_start += step;
+            loc_end += step;
+            tasks_assigned++;
+        }
+    }
+cleanup:
     free(args);
 }
 
-void init_get_hello_resp_timer(struct network_timer *timer, int time, u8 *hello_send, u8 *hello_wait, u64 *seq_num, struct server *srv_lst, size_t len) {
+void init_get_hello_resp_timer(struct network_timer *timer, int time, u8 *hello_send, u8 *hello_wait, u8 *task_send, u64 *seq_num, struct server *srv_lst, size_t len, 
+                                double start, double end, u8 *srv_cnt)
+{
     struct sockaddr_in sock = {};
     init_timer(timer, HELLO_MSG_TIMER, time, sock, hello_timer_handler);
     struct hello_timer_args *args = (struct hello_timer_args *)malloc(sizeof(struct hello_timer_args));
+    memset(args, 0, sizeof(*args));
     args->hello_send = hello_send;
     args->hello_wait = hello_wait;
     args->seq_num = seq_num;
     args->srv_lst = srv_lst;
     args->len = len;
+    args->task_send = task_send;
+    args->start = start;
+    args->end = end;
+    args->srv_cnt = srv_cnt;
     timer->args = (void *)args;
 }
 
@@ -98,3 +131,53 @@ void init_get_hello_resp_timer(struct network_timer *timer, int time, u8 *hello_
 /* create calc timer */
 /* as hanlder timer should switch server's state to dead and find new server to do task */
 /* if no servers alive create hello send msg */
+struct calc_timer_args {
+    struct server* srv;
+    struct server* srv_lst;
+    size_t len;
+    u8 *hello_send;
+    u8 *task_send;
+    u8 *srv_cnt;
+};
+
+/* close connection, set status to unknown, increment seq_num*/
+void calc_timer_handler(void *args) {
+    struct calc_timer_args *calc_args = (struct calc_timer_args *)args;
+    calc_args->srv->seq_num++;
+    close(calc_args->srv->tcp_socket);
+    calc_args->srv->timer = NULL;
+    calc_args->srv->status = STATUS_DEAD;
+    double task_start = calc_args->srv->task_start;
+    double task_end = calc_args->srv->task_end;
+    (*calc_args->srv_cnt)--;
+    if (!*calc_args->srv_cnt)
+        goto cleanup;
+
+    for (size_t i = 0; i < calc_args->len; i++) {
+        /* assign task to free server */
+        struct server *worker = &calc_args->srv_lst[i];
+        if (worker->status == STATUS_INACTIVE) {
+            worker->task_start = task_start;
+            worker->task_end = task_end;
+            *calc_args->task_send = 1;
+            break;
+        }
+    }
+
+cleanup:
+    free(args);
+}
+
+void init_get_calc_resp_timer(struct network_timer *timer, int time, u8 *hello_send, u8 *task_send, struct server *srv, struct server* srv_lst, size_t len, u8 *srv_cnt) {
+    struct sockaddr_in sock = {};
+    init_timer(timer, CALCULATE_MSG_TIMER, time, sock, calc_timer_handler);
+    struct calc_timer_args *args = (struct calc_timer_args *)malloc(sizeof(struct calc_timer_args));
+    memset(args, 0, sizeof(*args));
+    args->hello_send = hello_send;
+    args->task_send = task_send;
+    args->srv = srv;
+    args->srv_lst = srv_lst;
+    args->len = len;
+    args->srv_cnt = srv_cnt;
+    timer->args = (void *)args;
+}

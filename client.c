@@ -11,6 +11,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <assert.h>
 
 /* global parameters */
 #define CLI_GREET "[calc_cli]$"
@@ -115,11 +116,11 @@ int main(int argc, char *argv[]) {
     u8 hello_send = 1;
     u8 hello_wait = 0;
 
-    double task_start = 0;
-    double task_end = 100;
-    u8 task_send = 1;
+    double g_start = 0;
+    double g_end = 100;
+    u8 task_send = 0;
     u8 task_recv = 0;
-
+    u8 srv_cnt = 0;
     /* event loop */
 
     /* change time estimation */
@@ -147,7 +148,7 @@ int main(int argc, char *argv[]) {
                         /* add hello expired timer */
                         struct network_timer *timer = malloc(sizeof(struct network_timer));
                        // fprintf(stdout, "creating network timer %p, with %d, %d, %lu\n", timer, hello_send, hello_wait, greet_seq_num);
-                        init_get_hello_resp_timer(timer, HELLO_RESP_TOUT, &hello_send, &hello_wait, &greet_seq_num, servers, MAX_SERVERS);
+                        init_get_hello_resp_timer(timer, HELLO_RESP_TOUT, &hello_send, &hello_wait, &task_send, &greet_seq_num, servers, MAX_SERVERS, g_start, g_end, &srv_cnt);
                         /* add timer to the timer list */
                         lst_add_head(timer_lst, &timer->node);
                         hello_send = 0;
@@ -239,6 +240,7 @@ int main(int argc, char *argv[]) {
                                 }
 
                                 fprintf(stdout, CLI_GREET " srv " ADDR_FMT " succefully added in configuration\n", ADDR_ARGS(addr));
+                                srv_cnt++;
                             }
 
                         }

@@ -33,8 +33,6 @@ struct svc_engine {
 #define STATUS_ACTIVE   0x4
 #define STATUS_DEAD     0x8
 
-/* rewrite */
-/* add timer into server struct, so we can initialize timer in server and get server as container_of timer */
 struct server {
     u32 addr;
     u64 seq_num;
@@ -42,6 +40,7 @@ struct server {
     int tcp_socket;
     double task_start;
     double task_end;
+    void *timer;
 };
 
 /* MESSAGES */
